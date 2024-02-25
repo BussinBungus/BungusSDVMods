@@ -1,0 +1,9 @@
+﻿{
+  "Name": "Lost Book Menu",
+  "Author": "bungus",
+  "Version": "1.0.0",
+  "Description": "An easier way to read lost books.",
+  "UniqueID": "bungus.LostBookMenu",
+  "EntryDll": "LostBookMenu.dll",
+  "MinimumApiVersion": "3.15.0"
+}
