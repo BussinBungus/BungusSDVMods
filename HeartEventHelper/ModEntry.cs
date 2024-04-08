@@ -1,4 +1,4 @@
-﻿using System.Reflection.Emit;
+using System.Reflection.Emit;
 using System.Reflection;
 using HarmonyLib;
 using StardewModdingAPI;
@@ -196,6 +196,12 @@ namespace HeartEventHelper
         {
             Event branchEvent = Game1.currentLocation.findEventById(eventID);
             int friendship = 0;
+            
+            if (branchEvent == null)
+            {
+                SMonitor.Log("Couldn't find branching event with ID {eventID}, friendship calculation may be inaccurate.");
+                return 0;
+            }
 
             for (int i = 0; i < branchEvent.eventCommands.Length; i++)
             {
