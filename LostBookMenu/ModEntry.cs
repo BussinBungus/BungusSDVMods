@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewValley;
@@ -21,7 +21,7 @@ namespace LostBookMenu
         /// <param name="helper">Provides simplified APIs for writing mods.</param>
         public override void Entry(IModHelper helper)
         {
-            Config = Helper.ReadConfig<ModConfig>();
+            Config = helper.ReadConfig<ModConfig>();
 
             if (!Config.ModEnabled)
                 return;
@@ -29,10 +29,10 @@ namespace LostBookMenu
             SHelper = helper;
             BookMenu.Init(Monitor);
 
-            Helper.Events.GameLoop.GameLaunched += GameLoop_GameLaunched;
-            Helper.Events.GameLoop.DayStarted += GameLoop_DayStarted;
-            Helper.Events.Content.AssetRequested += Content_AssetRequested;
-            Helper.Events.Input.ButtonPressed += Input_ButtonPressed;
+            helper.Events.GameLoop.GameLaunched += GameLoop_GameLaunched;
+            helper.Events.GameLoop.DayStarted += GameLoop_DayStarted;
+            helper.Events.Content.AssetRequested += Content_AssetRequested;
+            helper.Events.Input.ButtonPressed += Input_ButtonPressed;
         }
 
         private void Input_ButtonPressed(object sender, StardewModdingAPI.Events.ButtonPressedEventArgs e)
@@ -64,10 +64,7 @@ namespace LostBookMenu
             }
             if (!bookData.ContainsKey("default"))
             {
-                bookData["default"] = new CoverData() { 
-                    texture = Helper.ModContent.Load<Texture2D>(Path.Combine("assets", "cover.png")), 
-                    scale = 8, 
-                };
+                bookData["default"] = new CoverData() { texture = Helper.ModContent.Load<Texture2D>(Path.Combine("assets", "cover.png")), scale = Config.CoverScale };
             }
         }
 
@@ -93,6 +90,10 @@ namespace LostBookMenu
                 save: () => Helper.WriteConfig(Config)
             );
 
+            configMenu.AddSectionTitle(
+                mod: ModManifest,
+                text: () => "Basic Settings"
+            );
             configMenu.AddBoolOption(
                 mod: ModManifest,
                 name: () => "Mod Enabled",
@@ -123,6 +124,28 @@ namespace LostBookMenu
                 getValue: () => Config.MissingText,
                 setValue: value => Config.MissingText = value
             );
+
+            configMenu.AddPageLink(
+                mod: ModManifest,
+                pageId: "Advanced",
+                text: () => "Go to Advanced Settings"
+            );
+            configMenu.AddPage(
+                mod: ModManifest,
+                pageId: "Advanced",
+                pageTitle: () => "Advanced Settings"
+            );
+            configMenu.AddSectionTitle(
+                mod: ModManifest,
+                text: () => "Advanced Settings"
+            );
+            configMenu.AddBoolOption(
+                mod: ModManifest,
+                name: () => "Use Original Titles",
+                tooltip: () => "Use the original 'always on' titles instead of the new 'tooltip' titles.",
+                getValue: () => Config.LegacyTitles,
+                setValue: value => Config.LegacyTitles = value
+            );
             configMenu.AddNumberOption(
                 mod: ModManifest,
                 name: () => "Window Width",
@@ -137,27 +160,43 @@ namespace LostBookMenu
             );
             configMenu.AddNumberOption(
                 mod: ModManifest,
-                name: () => "Grid Columns",
+                name: () => "Number of Columns",
                 getValue: () => Config.GridColumns,
                 setValue: value => Config.GridColumns = value
             );
             configMenu.AddNumberOption(
                 mod: ModManifest,
-                name: () => "Cover Width",
-                getValue: () => Config.CoverWidth,
-                setValue: value => Config.CoverWidth = value
+                name: () => "X Offset",
+                tooltip: () => "Distance from the left border to start displaying books. '-1' uses the default calculation to center.",
+                getValue: () => Config.xOffset,
+                setValue: value => Config.xOffset = value
             );
             configMenu.AddNumberOption(
                 mod: ModManifest,
-                name: () => "Cover Height",
-                getValue: () => Config.CoverHeight,
-                setValue: value => Config.CoverHeight = value
+                name: () => "Y Offset",
+                tooltip: () => "Distance from the upper border to start displaying books.",
+                getValue: () => Config.yOffset,
+                setValue: value => Config.yOffset = value
             );
             configMenu.AddNumberOption(
                 mod: ModManifest,
-                name: () => "Grid Spacing",
-                getValue: () => Config.GridSpace,
-                setValue: value => Config.GridSpace = value
+                name: () => "Cover Scale",
+                getValue: () => Config.CoverScale,
+                setValue: value => Config.CoverScale = value
+            );
+            configMenu.AddNumberOption(
+                mod: ModManifest,
+                name: () => "Horizontal Spacing",
+                tooltip: () => "The horizontal space between two books.",
+                getValue: () => Config.HorizontalSpace,
+                setValue: value => Config.HorizontalSpace = value
+            );
+            configMenu.AddNumberOption(
+                mod: ModManifest,
+                name: () => "Vertical Spacing",
+                tooltip: () => "The vertical space between two books.",
+                getValue: () => Config.VerticalSpace,
+                setValue: value => Config.VerticalSpace = value
             );
         }
 
