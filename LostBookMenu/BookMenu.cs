@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewValley;
@@ -54,6 +54,7 @@ namespace LostBookMenu
                 if (ModEntry.bookData.TryGetValue(id, out CoverData data) && !string.IsNullOrEmpty(data.texturePath))
                 {
                     data.texture = ModEntry.SHelper.GameContent.Load<Texture2D>(data.texturePath);
+                    data.scale = ModEntry.Config.CoverScale;
                 }
                 else
                 {
@@ -69,9 +70,11 @@ namespace LostBookMenu
         {
             int gridX = i % ModEntry.Config.GridColumns;
             int gridY = i / ModEntry.Config.GridColumns;
-            int xOffset =  Math.Max(0, (width - (borderWidth * 2) - (ModEntry.Config.CoverWidth + ModEntry.Config.GridSpace) * ModEntry.Config.GridColumns) / 2);
-            int yOffset = 160; // originally 132
-            int extraTitleHeight = 20; // originally 16
+            int coverWidth = (int)(ModEntry.Config.CoverScale * data.width);
+            int coverHeight = (int)(ModEntry.Config.CoverScale * data.height);
+            int xOffsetDefault = Math.Max(0, (width - (borderWidth * 2) - (coverWidth + ModEntry.Config.HorizontalSpace) * ModEntry.Config.GridColumns + ModEntry.Config.HorizontalSpace) / 2);
+            int xOffset = borderWidth + (ModEntry.Config.xOffset == -1 ? xOffsetDefault : ModEntry.Config.xOffset);
+            int yOffset = borderWidth + ModEntry.Config.yOffset;
 
             Rectangle textureBounds = new Rectangle(0, 0, data.texture.Width, data.texture.Height);
             if (data.frames > 1)
@@ -79,9 +82,9 @@ namespace LostBookMenu
                 textureBounds.Size = new Point(data.frameWidth, data.texture.Height);
             }
 
-            int ccX = xPositionOnScreen + borderWidth * 2 + xOffset + gridX * (ModEntry.Config.CoverWidth + ModEntry.Config.GridSpace);
-            int ccY = yPositionOnScreen + borderWidth + yOffset + gridY * (ModEntry.Config.CoverHeight + ModEntry.Config.GridSpace + extraTitleHeight);
-            currentBookList.Add(new ClickableTextureComponent(id, new Rectangle(ccX, ccY, ModEntry.Config.CoverWidth, ModEntry.Config.CoverHeight), "", data.title, data.texture, textureBounds, data.scale, false)
+            int ccX = xPositionOnScreen + xOffset + gridX * (coverWidth + ModEntry.Config.HorizontalSpace);
+            int ccY = yPositionOnScreen + yOffset + gridY * (coverHeight + ModEntry.Config.VerticalSpace);
+            currentBookList.Add(new ClickableTextureComponent(id, new Rectangle(ccX, ccY, coverWidth, coverHeight), "", data.title, data.texture, textureBounds, data.scale, false)
             {
                 myID = i,
                 upNeighborID = i - ModEntry.Config.GridColumns,
@@ -101,6 +104,24 @@ namespace LostBookMenu
             snapCursorToCurrentSnappedComponent();
         }
 
+        public override void performHoverAction(int x, int y)
+        {
+            this.upperRightCloseButton?.tryHover(x, y, 0.5f);
+
+            foreach (var cc in currentBookList)
+            {
+                ModEntry.bookData.TryGetValue(cc.name, out CoverData data);
+                var s = (cc.myID <= booksFound) ? data.title : ModEntry.Config.MissingText;
+                
+                cc.tryHover(x, y);
+                if (cc.containsPoint(x, y))
+                {
+                    cc.hoverText = s;
+                }
+                else if (!ModEntry.Config.LegacyTitles) { cc.hoverText = ""; }
+            }
+        }
+
         public override void draw(SpriteBatch b)
         {
             Game1.drawDialogueBox(xPositionOnScreen, yPositionOnScreen, width, height, false, true, null, false, false); // draw menu box
@@ -114,25 +135,40 @@ namespace LostBookMenu
                 cc.draw(b, (cc.myID <= booksFound) ? Color.White : Color.DimGray * 0.1f, 1, frameOffset);
                 cc.draw(b, (cc.myID <= booksFound) ? Color.White : Color.Black * 0.2f, 1, frameOffset);
 
-                var s = (cc.myID <= booksFound) ? cc.hoverText : ModEntry.Config.MissingText;
-                var scale = 1f;
-                var split = s.Split(' ');
-                int lines = 0;
-                for (int i = 0; i < split.Length; i++)
+            }
+            // draw book titles
+            foreach (var cc in currentBookList)
+            {
+                if (ModEntry.Config.LegacyTitles) // old titles under covers
                 {
-                    string str = split[i];
-                    if(i < split.Length - 1 && Game1.smallFont.MeasureString(str + " " + split[i + 1]).X < cc.bounds.Width * 1.5f)
+                    var s = (cc.myID <= booksFound) ? cc.hoverText : ModEntry.Config.MissingText;
+                    var scale = 1f;
+                    var split = s.Split(' ');
+                    int lines = 0;
+                    for (int i = 0; i < split.Length; i++)
                     {
-                        str += " " + split[i + 1];
-                        i++;
-                    }
-                    var m = Game1.smallFont.MeasureString(str) * scale;
-                    var y = cc.bounds.Y + cc.bounds.Height + (int)(m.Y * (lines * 0.8f + 0.5f));
+                        string str = split[i];
+                        if (i < split.Length - 1 && Game1.smallFont.MeasureString(str + " " + split[i + 1]).X < cc.bounds.Width * 1.5f)
+                        {
+                            str += " " + split[i + 1];
+                            i++;
+                        }
+                        var m = Game1.smallFont.MeasureString(str) * scale;
+                        //var y = cc.bounds.Y + cc.bounds.Height + (int)(m.Y * (lines * 0.8f + 0.5f));
+                        var y = cc.bounds.Y + cc.bounds.Height + (int)(m.Y * (lines * 0.8f + 0.1f));
 
-                    // draw titles
-                    b.DrawString(Game1.smallFont, str, new Vector2(cc.bounds.X + (cc.bounds.Width - m.X) / 2 - 1, y + 1), Color.White, 0, Vector2.Zero, scale, SpriteEffects.None, 1f);
-                    b.DrawString(Game1.smallFont, str, new Vector2(cc.bounds.X + (cc.bounds.Width - m.X) / 2, y), Color.Black, 0, Vector2.Zero, scale, SpriteEffects.None, 1f);
-                    lines++;
+                        //b.DrawString(Game1.smallFont, str, new Vector2(cc.bounds.X + (cc.bounds.Width - m.X) / 2 - 1, y + 1), Color.White, 0, Vector2.Zero, scale, SpriteEffects.None, 1f);
+                        //b.DrawString(Game1.smallFont, str, new Vector2(cc.bounds.X + (cc.bounds.Width - m.X) / 2, y), Color.Black, 0, Vector2.Zero, scale, SpriteEffects.None, 1f);
+                        Utility.drawTextWithShadow(b, str, Game1.smallFont, new Vector2(cc.bounds.X + (cc.bounds.Width - m.X) / 2, y), Game1.textColor);
+                        lines++;
+                    }
+                }
+                else // new tooltip titles
+                {
+                    if (!cc.hoverText.Equals(""))
+                    {
+                        drawHoverText(b, cc.hoverText, Game1.smallFont);
+                    }
                 }
             }
             drawMouse(b);
