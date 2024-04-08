@@ -1,5 +1,7 @@
-﻿using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Graphics;
 using Newtonsoft.Json;
+using StardewModdingAPI;
+using StardewValley;
 
 namespace LostBookMenu
 {
@@ -7,7 +9,9 @@ namespace LostBookMenu
     {
         public string texturePath;
         public string title;
-        public float scale = 1;
+        public float scale;
+        public int width = 16;
+        public int height = 16;
         public int frames = 1;
         public int frameWidth;
         public float frameSeconds;
