@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using StardewModdingAPI;
 using StardewValley;
 using StardewValley.BellsAndWhistles;
@@ -51,17 +52,10 @@ namespace LostBookMenu
                 string id = i.ToString();
 
                 // get cover texture data
-                if (ModEntry.bookData.TryGetValue(id, out CoverData data) && !string.IsNullOrEmpty(data.texturePath))
+                if (ModEntry.bookData.TryGetValue(id, out CoverData data))
                 {
-                    data.texture = ModEntry.SHelper.GameContent.Load<Texture2D>(data.texturePath);
-                    data.scale = ModEntry.Config.CoverScale;
+                    addBook(id, i, data);
                 }
-                else
-                {
-                    data.texture = ModEntry.bookData["default"].texture;
-                    data.scale = ModEntry.bookData["default"].scale;
-                }
-                addBook(id, i, data);
             }
             populateClickableComponentList();
         }
@@ -111,7 +105,7 @@ namespace LostBookMenu
             foreach (var cc in currentBookList)
             {
                 ModEntry.bookData.TryGetValue(cc.name, out CoverData data);
-                var s = (cc.myID <= booksFound) ? data.title : ModEntry.Config.MissingText;
+                var s = (cc.myID <= booksFound) ? data.title : ModEntry.SHelper.Translation.Get("MissingName");
                 
                 cc.tryHover(x, y);
                 if (cc.containsPoint(x, y))
@@ -125,7 +119,7 @@ namespace LostBookMenu
         public override void draw(SpriteBatch b)
         {
             Game1.drawDialogueBox(xPositionOnScreen, yPositionOnScreen, width, height, false, true, null, false, false); // draw menu box
-            SpriteText.drawStringWithScrollCenteredAt(b, ModEntry.Config.MenuTitle, xPositionOnScreen + width/2, yPositionOnScreen + spaceToClearTopBorder, width - borderWidth * 4); // draw title scroll
+            SpriteText.drawStringWithScrollCenteredAt(b, ModEntry.SHelper.Translation.Get("MenuName"), xPositionOnScreen + width/2, yPositionOnScreen + spaceToClearTopBorder, width - borderWidth * 4); // draw title scroll
 
             foreach (var cc in currentBookList)
             {
@@ -141,7 +135,7 @@ namespace LostBookMenu
             {
                 if (ModEntry.Config.LegacyTitles) // old titles under covers
                 {
-                    var s = (cc.myID <= booksFound) ? cc.hoverText : ModEntry.Config.MissingText;
+                    var s = (cc.myID <= booksFound) ? cc.hoverText : ModEntry.SHelper.Translation.Get("MissingName");
                     var scale = 1f;
                     var split = s.Split(' ');
                     int lines = 0;
