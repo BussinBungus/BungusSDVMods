@@ -1,7 +1,7 @@
 {
   "Name": "Lost Book Menu",
   "Author": "bungus",
-  "Version": "1.1.0",
+  "Version": "1.1.2",
   "Description": "An easier way to read lost books.",
   "UniqueID": "bungus.LostBookMenu",
   "EntryDll": "LostBookMenu.dll",
