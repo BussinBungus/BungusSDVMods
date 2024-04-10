@@ -29,28 +29,17 @@ namespace LostBookMenu
             SHelper = helper;
             BookMenu.Init(Monitor);
 
+            helper.Events.Content.AssetRequested += Content_AssetRequested;
             helper.Events.GameLoop.GameLaunched += GameLoop_GameLaunched;
             helper.Events.GameLoop.DayStarted += GameLoop_DayStarted;
-            helper.Events.Content.AssetRequested += Content_AssetRequested;
             helper.Events.Input.ButtonPressed += Input_ButtonPressed;
         }
 
-        private void Input_ButtonPressed(object sender, StardewModdingAPI.Events.ButtonPressedEventArgs e)
+        private void Content_AssetRequested(object sender, StardewModdingAPI.Events.AssetRequestedEventArgs e)
         {
-            if (!Config.ModEnabled)
-                return;
-            if (e.Button == Config.MenuKey)
+            if (e.NameWithoutLocale.IsEquivalentTo(coverPath))
             {
-                OpenMenu();
-            }
-            if (e.Button == SButton.MouseRight && e.Cursor.GrabTile == new Vector2(7,9) && Game1.player.currentLocation.Name == "ArchaeologyHouse")
-            {
-                OpenMenu();
-            }
-            if (e.Button == SButton.ControllerA && e.Cursor.GrabTile == new Vector2(7,10) && Game1.player.currentLocation.Name == "ArchaeologyHouse")
-            {
-                Helper.Input.Suppress(SButton.ControllerA);
-                OpenMenu();
+                e.LoadFrom(() => coverDictionary, StardewModdingAPI.Events.AssetLoadPriority.Exclusive);
             }
         }
 
@@ -59,20 +48,17 @@ namespace LostBookMenu
             bookData = Helper.GameContent.Load<Dictionary<string, CoverData>>(coverPath);
             foreach (var key in bookData.Keys.ToArray())
             {
-                if(!string.IsNullOrEmpty(bookData[key].texturePath))
+                bookData[key].scale = Config.CoverScale;
+                bookData[key].title = SHelper.Translation.Get($"BookName.{key}");
+                if (!string.IsNullOrEmpty(bookData[key].texturePath))
+                {
                     bookData[key].texture = Helper.GameContent.Load<Texture2D>(bookData[key].texturePath);
-            }
-            if (!bookData.ContainsKey("default"))
-            {
-                bookData["default"] = new CoverData() { texture = Helper.ModContent.Load<Texture2D>(Path.Combine("assets", "cover.png")), scale = Config.CoverScale };
-            }
-        }
+                }
+                else
+                {
+                    bookData[key].texture = Helper.ModContent.Load<Texture2D>(Path.Combine("assets", "cover.png"));
+                }
 
-        private void Content_AssetRequested(object sender, StardewModdingAPI.Events.AssetRequestedEventArgs e)
-        {
-            if (e.NameWithoutLocale.IsEquivalentTo(coverPath))
-            {
-                e.LoadFrom(() => defaultBookTitles, StardewModdingAPI.Events.AssetLoadPriority.Exclusive);
             }
         }
 
@@ -112,17 +98,12 @@ namespace LostBookMenu
                 getValue: () => Config.MenuKey,
                 setValue: value => Config.MenuKey = value
             );
-            configMenu.AddTextOption(
+            configMenu.AddBoolOption(
                 mod: ModManifest,
-                name: () => "Menu Title",
-                getValue: () => Config.MenuTitle,
-                setValue: value => Config.MenuTitle = value
-            );
-            configMenu.AddTextOption(
-                mod: ModManifest,
-                name: () => "Missing Text",
-                getValue: () => Config.MissingText,
-                setValue: value => Config.MissingText = value
+                name: () => "Use Original Titles",
+                tooltip: () => "Use the original 'always on' titles instead of the new 'tooltip' titles.",
+                getValue: () => Config.LegacyTitles,
+                setValue: value => Config.LegacyTitles = value
             );
 
             configMenu.AddPageLink(
@@ -138,13 +119,6 @@ namespace LostBookMenu
             configMenu.AddSectionTitle(
                 mod: ModManifest,
                 text: () => "Advanced Settings"
-            );
-            configMenu.AddBoolOption(
-                mod: ModManifest,
-                name: () => "Use Original Titles",
-                tooltip: () => "Use the original 'always on' titles instead of the new 'tooltip' titles.",
-                getValue: () => Config.LegacyTitles,
-                setValue: value => Config.LegacyTitles = value
             );
             configMenu.AddNumberOption(
                 mod: ModManifest,
@@ -198,6 +172,25 @@ namespace LostBookMenu
                 getValue: () => Config.VerticalSpace,
                 setValue: value => Config.VerticalSpace = value
             );
+        }
+
+        private void Input_ButtonPressed(object sender, StardewModdingAPI.Events.ButtonPressedEventArgs e)
+        {
+            if (!Config.ModEnabled)
+                return;
+            if (e.Button == Config.MenuKey)
+            {
+                OpenMenu();
+            }
+            if (e.Button == SButton.MouseRight && e.Cursor.GrabTile == new Vector2(7, 9) && Game1.player.currentLocation.Name == "ArchaeologyHouse")
+            {
+                OpenMenu();
+            }
+            if (e.Button == SButton.ControllerA && e.Cursor.GrabTile == new Vector2(7, 10) && Game1.player.currentLocation.Name == "ArchaeologyHouse")
+            {
+                Helper.Input.Suppress(SButton.ControllerA);
+                OpenMenu();
+            }
         }
 
         private void OpenMenu()
