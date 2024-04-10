@@ -98,32 +98,45 @@ namespace HeartEventHelper
         /// Other Methods ///
         public static Response[] GetQuickQuestionAnswers(Response[] answers)
         {
-            string currentCommand = Game1.CurrentEvent.GetCurrentCommand();
-            string[] scriptsSplit = currentCommand.Substring(currentCommand.IndexOf("(break)") + 7).Split("(break)");
-
-            for (int i = 0; i < answers.Length; i++)
+            try
             {
-                int friendship = 0;                
+                string currentCommand = Game1.CurrentEvent.GetCurrentCommand();
+                string[] scriptsSplit = currentCommand.Substring(currentCommand.IndexOf("(break)") + 7).Split("(break)");
 
-                string[] scriptCommands = scriptsSplit[i].Split('\\');
-
-                foreach (string command in scriptCommands)
+                for (int i = 0; i < answers.Length; i++)
                 {
-                    string[] commandSplit = ArgUtility.SplitBySpaceQuoteAware(command);
-                    string commandName = commandSplit[0];
+                    int friendship = 0;
 
-                    foreach (string cs in commandSplit) { SMonitor.Log(cs); }
+                    string[] scriptCommands = scriptsSplit[i].Split('\\');
 
-                    if (commandName == "friendship" || commandName == "friend")
+                    foreach (string command in scriptCommands)
                     {
-                        string reaction = commandSplit[2];
-                        SMonitor.Log($"friendship command at answer {i + 1}, gives {reaction} pts", LogLevel.Trace);
-                        friendship += int.Parse(reaction);
+                        string[] commandSplit = ArgUtility.SplitBySpaceQuoteAware(command);
+                        string commandName = commandSplit[0];
+
+                        if (commandName == "friendship" || commandName == "friend")
+                        {
+                            string reaction = commandSplit[2];
+                            SMonitor.Log($"friendship command at answer {i + 1}, gives {reaction} pts", LogLevel.Trace);
+                            friendship += int.Parse(reaction);
+                        }
                     }
+                    answers[i].responseText = AddReactionText(answers[i].responseText, friendship.ToString());
                 }
-                answers[i].responseText = AddReactionText(answers[i].responseText, friendship.ToString());
+                return answers;
             }
-            return answers;
+            catch (Exception e)
+            {
+                SMonitor.Log($"GetQuickQuestionAnswers in HeartEventHelper failed! Here's some info, please report:", LogLevel.Error);
+                SMonitor.Log($"Event ID: {Game1.CurrentEvent.id}", LogLevel.Error);
+                SMonitor.Log($"Event Location: {Game1.currentLocation}", LogLevel.Error);
+                List<string> actors = new List<string>();
+                foreach (NPC actor in Game1.CurrentEvent.actors) { actors.Add(actor.Name); }
+                SMonitor.Log($"Event Actors: {string.Join(",", actors.ToArray())}", LogLevel.Error);
+                SMonitor.Log("Event Error Message: ", LogLevel.Error);
+                SMonitor.Log(e.Message, LogLevel.Error);
+                return answers;
+            }
         }
         public static Response[] GetQuestionAnswers(Response[] answers)
         {
@@ -132,65 +145,85 @@ namespace HeartEventHelper
             int numToFork = 0;
             int forked = Game1.CurrentEvent.forked ? 1 : 0;
 
-            for (int i = 0; i < Game1.CurrentEvent.eventCommands.Length; i++)
+            try
             {
-                string command1 = Game1.CurrentEvent.eventCommands[i];
-
-                if (command1 == Game1.CurrentEvent.GetCurrentCommand())
+                for (int i = 0; i < Game1.CurrentEvent.eventCommands.Length; i++)
                 {
-                    string[] command1Split = ArgUtility.SplitBySpaceQuoteAware(command1);
+                    string command1 = Game1.CurrentEvent.eventCommands[i];
 
-                    if (!int.TryParse(command1Split[1].Substring(4), out numToFork))
+                    if (command1 == Game1.CurrentEvent.GetCurrentCommand())
                     {
-                        break;
-                    }
-                    
-                    for (int j = i + 1; j < Game1.CurrentEvent.eventCommands.Length; j++)
-                    {
-                        string command2 = Game1.CurrentEvent.eventCommands[j];
-                        string[] command2Split = ArgUtility.SplitBySpaceQuoteAware(command2);
-                        string command2Name = command2Split[0];
+                        string[] command1Split = ArgUtility.SplitBySpaceQuoteAware(command1);
 
-                        if (command2Name == "question" || command2Name == "end")
+                        if (!int.TryParse(command1Split[1].Substring(4), out numToFork))
                         {
                             break;
                         }
-                        
-                        switch (command2Name)
+
+                        for (int j = i + 1; j < Game1.CurrentEvent.eventCommands.Length; j++)
                         {
-                            case "friendship":
-                            case "friend":
-                                string reaction = command2Split[2];
-                                SMonitor.Log($"friendship command at index {j}, gives {reaction} pts", LogLevel.Trace);
-                                unforkedFriendship += int.Parse(reaction);
+                            string command2 = Game1.CurrentEvent.eventCommands[j];
+                            string[] command2Split = ArgUtility.SplitBySpaceQuoteAware(command2);
+                            string command2Name = command2Split[0];
+
+                            if (command2Name == "question" || command2Name == "end")
+                            {
                                 break;
-                            case "fork":
-                                string forkEventID = command2Split[1];
-                                SMonitor.Log($"fork command at index {j}, attempting branch to event {forkEventID}", LogLevel.Trace);
-                                forkedFriendship += BranchHandler(forkEventID);
-                                break;
-                            case "switchEvent":
-                                string switchEventID = command2Split[1];
-                                SMonitor.Log($"switchEvent command at index {j}, attempting branch to event {switchEventID}", LogLevel.Trace);
-                                unforkedFriendship += BranchHandler(switchEventID);
-                                break;
+                            }
+
+                            switch (command2Name)
+                            {
+                                case "friendship":
+                                case "friend":
+                                    string reaction = command2Split[2];
+                                    SMonitor.Log($"friendship command at index {j}, gives {reaction} pts", LogLevel.Trace);
+                                    unforkedFriendship += int.Parse(reaction);
+                                    break;
+                                case "fork":
+                                    string forkEventID = command2Split[1];
+                                    SMonitor.Log($"fork command at index {j}, attempting branch to event {forkEventID}", LogLevel.Trace);
+                                    forkedFriendship += BranchHandler(forkEventID);
+                                    break;
+                                case "switchEvent":
+                                    string switchEventID = command2Split[1];
+                                    SMonitor.Log($"switchEvent command at index {j}, attempting branch to event {switchEventID}", LogLevel.Trace);
+                                    unforkedFriendship += BranchHandler(switchEventID);
+                                    break;
+                            }
                         }
                     }
                 }
+                foreach (Response answer in answers)
+                {
+                    if (answer.responseText == "") { continue; }
+
+                    bool numToForkIsSafe = numToFork >= 0 && numToFork < answers.Length;
+                    bool forkedToggle = Game1.currentLocation.currentEvent.specialEventVariable1;
+                    bool shouldFork = numToForkIsSafe ? (answer == answers[numToFork] && !forkedToggle) || (answer != answers[numToFork] && forkedToggle) : forkedToggle;
+
+                    if (shouldFork)
+                    {
+                        answer.responseText = AddReactionText(answer.responseText, forkedFriendship.ToString());
+                    }
+                    else
+                    {
+                        answer.responseText = AddReactionText(answer.responseText, unforkedFriendship.ToString());
+                    }
+                }
+                return answers;
             }
-            foreach (Response answer in answers)
+            catch (Exception e)
             {
-                if (answer.responseText == "") { continue; }
-                if (answer == answers[Math.Max(numToFork - forked, 0)])
-                {
-                    answer.responseText = AddReactionText(answer.responseText, forkedFriendship.ToString());
-                }
-                else
-                {
-                    answer.responseText = AddReactionText(answer.responseText, unforkedFriendship.ToString());
-                }
+                SMonitor.Log("GetQuestionAnswers in HeartEventHelper failed! Here's some info, please report:", LogLevel.Error);
+                SMonitor.Log($"Event ID: {Game1.CurrentEvent.id}", LogLevel.Error);
+                SMonitor.Log($"Event Location: {Game1.currentLocation}", LogLevel.Error);
+                List<string> actors = new List<string>();
+                foreach (NPC actor in Game1.CurrentEvent.actors) { actors.Add(actor.Name); }
+                SMonitor.Log($"Event Actors: {string.Join(",", actors.ToArray())}", LogLevel.Error);
+                SMonitor.Log("Event Error Message: ", LogLevel.Error);
+                SMonitor.Log(e.Message, LogLevel.Error);
+                return answers;
             }
-            return answers;
         }
         public static int BranchHandler(string eventID)
         {
@@ -199,7 +232,7 @@ namespace HeartEventHelper
             
             if (branchEvent == null)
             {
-                SMonitor.Log("Couldn't find branching event with ID {eventID}, friendship calculation may be inaccurate.");
+                SMonitor.Log($"Couldn't find branching event with ID {eventID}, friendship calculation may be inaccurate.");
                 return 0;
             }
 
@@ -346,7 +379,7 @@ namespace HeartEventHelper
                 "Spaces aren't automatically added between the default dialogue and affixes, so they must be included in the boxes above if desired. " +
                 // "The 'Disable if All Neutral' config attempts to not change dialogue if all options are neutral, but there are certain dialogues it can't detect. " +
                 // "For the most consistency, it is best to leave 'false' and make the text before and after neutral blank if you want to disable changes to neutral responses. " +
-                "To disable changes to neutral responses, clear the 'Text Before Neutral' and 'Text After Neutral' fields." +
+                "To disable changes to neutral responses, clear the 'Text Before Neutral' and 'Text After Neutral' fields. " +
                 "See the 'Heart Event Helper - Icons (CP)' config menu to change the custom icons."
             );
 
