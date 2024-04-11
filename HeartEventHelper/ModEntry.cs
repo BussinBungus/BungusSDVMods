@@ -1,4 +1,4 @@
-using System.Reflection.Emit;
+﻿using System.Reflection.Emit;
 using System.Reflection;
 using HarmonyLib;
 using StardewModdingAPI;
@@ -107,18 +107,43 @@ namespace HeartEventHelper
                 {
                     int friendship = 0;
 
-                    string[] scriptCommands = scriptsSplit[i].Split('\\');
-
-                    foreach (string command in scriptCommands)
+                    if (ArgUtility.TryGet(scriptsSplit, i, out var script, out var error))
                     {
-                        string[] commandSplit = ArgUtility.SplitBySpaceQuoteAware(command);
-                        string commandName = commandSplit[0];
+                        string[] scriptCommands = script.Split('\\');
 
-                        if (commandName == "friendship" || commandName == "friend")
+                        foreach (string command in scriptCommands)
                         {
-                            string reaction = commandSplit[2];
-                            SMonitor.Log($"friendship command at answer {i + 1}, gives {reaction} pts", LogLevel.Trace);
-                            friendship += int.Parse(reaction);
+                            string[] commandSplit = ArgUtility.SplitBySpaceQuoteAware(command);
+                            string commandName = commandSplit[0];
+
+                            switch (commandName)
+                            {
+                                case "friendship":
+                                case "friend":
+                                    string reaction = commandSplit[2];
+                                    SMonitor.Log($"friendship command at answer {i + 1}, gives {reaction} pts", LogLevel.Trace);
+                                    friendship += int.Parse(reaction);
+                                    break;
+                                case "fork":
+                                    ArgUtility.TryGet(commandSplit, 1, out var req, out var error2);
+                                    ArgUtility.TryGetOptional(commandSplit, 2, out var forkEventID, out error2);
+                                    if (forkEventID == null)
+                                    {
+                                        forkEventID = req;
+                                        req = null;
+                                    }
+                                    if ((req == null && Game1.CurrentEvent.specialEventVariable1) || Game1.player.mailReceived.Contains(req) || Game1.player.dialogueQuestionsAnswered.Contains(req))
+                                    {
+                                        SMonitor.Log($"fork command at answer {i + 1}, attempting branch to event {forkEventID}", LogLevel.Trace);
+                                        friendship += BranchHandler(forkEventID);
+                                    }
+                                    break;
+                                case "switchEvent":
+                                    string switchEventID = commandSplit[1];
+                                    SMonitor.Log($"switchEvent command at answer {i + 1}, attempting branch to event {switchEventID}", LogLevel.Trace);
+                                    friendship += BranchHandler(switchEventID);
+                                    break;
+                            }
                         }
                     }
                     answers[i].responseText = AddReactionText(answers[i].responseText, friendship.ToString());
@@ -129,10 +154,10 @@ namespace HeartEventHelper
             {
                 SMonitor.Log($"GetQuickQuestionAnswers in HeartEventHelper failed! Here's some info, please report:", LogLevel.Error);
                 SMonitor.Log($"Event ID: {Game1.CurrentEvent.id}", LogLevel.Error);
-                SMonitor.Log($"Event Location: {Game1.currentLocation}", LogLevel.Error);
+                SMonitor.Log($"Event Location: {Game1.currentLocation.Name}", LogLevel.Error);
                 List<string> actors = new List<string>();
                 foreach (NPC actor in Game1.CurrentEvent.actors) { actors.Add(actor.Name); }
-                SMonitor.Log($"Event Actors: {string.Join(",", actors.ToArray())}", LogLevel.Error);
+                SMonitor.Log($"Event Actors: {string.Join(", ", actors.ToArray())}", LogLevel.Error);
                 SMonitor.Log("Event Error Message: ", LogLevel.Error);
                 SMonitor.Log(e.Message, LogLevel.Error);
                 return answers;
@@ -143,7 +168,6 @@ namespace HeartEventHelper
             int forkedFriendship = 0;
             int unforkedFriendship = 0;
             int numToFork = 0;
-            int forked = Game1.CurrentEvent.forked ? 1 : 0;
 
             try
             {
@@ -180,9 +204,18 @@ namespace HeartEventHelper
                                     unforkedFriendship += int.Parse(reaction);
                                     break;
                                 case "fork":
-                                    string forkEventID = command2Split[1];
-                                    SMonitor.Log($"fork command at index {j}, attempting branch to event {forkEventID}", LogLevel.Trace);
-                                    forkedFriendship += BranchHandler(forkEventID);
+                                    ArgUtility.TryGet(command2Split, 1, out var req, out var error);
+                                    ArgUtility.TryGetOptional(command2Split, 2, out var forkEventID, out error);
+                                    if (forkEventID == null)
+                                    {
+                                        forkEventID = req;
+                                        req = null;
+                                    }
+                                    if (req == null || Game1.player.mailReceived.Contains(req) || Game1.player.dialogueQuestionsAnswered.Contains(req))
+                                    {
+                                        SMonitor.Log($"fork command at index {j}, attempting branch to event {forkEventID}", LogLevel.Trace);
+                                        forkedFriendship += BranchHandler(forkEventID);
+                                    }
                                     break;
                                 case "switchEvent":
                                     string switchEventID = command2Split[1];
@@ -195,8 +228,6 @@ namespace HeartEventHelper
                 }
                 foreach (Response answer in answers)
                 {
-                    if (answer.responseText == "") { continue; }
-
                     bool numToForkIsSafe = numToFork >= 0 && numToFork < answers.Length;
                     bool forkedToggle = Game1.currentLocation.currentEvent.specialEventVariable1;
                     bool shouldFork = numToForkIsSafe ? (answer == answers[numToFork] && !forkedToggle) || (answer != answers[numToFork] && forkedToggle) : forkedToggle;
@@ -216,10 +247,10 @@ namespace HeartEventHelper
             {
                 SMonitor.Log("GetQuestionAnswers in HeartEventHelper failed! Here's some info, please report:", LogLevel.Error);
                 SMonitor.Log($"Event ID: {Game1.CurrentEvent.id}", LogLevel.Error);
-                SMonitor.Log($"Event Location: {Game1.currentLocation}", LogLevel.Error);
+                SMonitor.Log($"Event Location: {Game1.currentLocation.Name}", LogLevel.Error);
                 List<string> actors = new List<string>();
                 foreach (NPC actor in Game1.CurrentEvent.actors) { actors.Add(actor.Name); }
-                SMonitor.Log($"Event Actors: {string.Join(",", actors.ToArray())}", LogLevel.Error);
+                SMonitor.Log($"Event Actors: {string.Join(", ", actors.ToArray())}", LogLevel.Error);
                 SMonitor.Log("Event Error Message: ", LogLevel.Error);
                 SMonitor.Log(e.Message, LogLevel.Error);
                 return answers;
@@ -232,8 +263,15 @@ namespace HeartEventHelper
             
             if (branchEvent == null)
             {
-                SMonitor.Log($"Couldn't find branching event with ID {eventID}, friendship calculation may be inaccurate.");
-                return 0;
+                if (Game1.content.Load<Dictionary<string, string>>("Data\\Events\\Temp").TryGetValue(eventID, out var eventScript))
+                {
+                    branchEvent = new Event(eventScript);
+                }
+                else
+                {
+                    SMonitor.Log($"BranchHandler in HeartEventHelper couldn't find branching event with ID {eventID}, friendship calculation may be inaccurate. Please report!", LogLevel.Error);
+                    return 0;
+                }
             }
 
             for (int i = 0; i < branchEvent.eventCommands.Length; i++)
@@ -255,8 +293,24 @@ namespace HeartEventHelper
                         SMonitor.Log($"friendship command in branch {eventID} at index {i}, gives {commandSplit[2]} pts", LogLevel.Trace);
                         friendship += int.Parse(reaction);
                         break;
+                    case "fork":
+                        ArgUtility.TryGet(commandSplit, 1, out var req, out var error);
+                        ArgUtility.TryGetOptional(commandSplit, 2, out var forkEventID, out error);
+                        if (forkEventID == null)
+                        {
+                            forkEventID = req;
+                            req = null;
+                        }
+                        if ((req == null && Game1.CurrentEvent.specialEventVariable1) || Game1.player.mailReceived.Contains(req) || Game1.player.dialogueQuestionsAnswered.Contains(req))
+                        {
+                            SMonitor.Log($"fork command at index {i}, attempting branch to event {forkEventID}", LogLevel.Trace);
+                            friendship += BranchHandler(forkEventID); // recursion (spooky), may remove
+                        }
+                        break;
                     case "switchEvent":
-                        friendship += ModEntry.BranchHandler(commandSplit[1]); // recursion (spooky), may remove
+                        string switchEventID = commandSplit[1];
+                        SMonitor.Log($"switchEvent command at index {i}, attempting branch to event {switchEventID}", LogLevel.Trace);
+                        friendship += BranchHandler(switchEventID); // recursion (spooky), may remove
                         break;
                 }
             }
@@ -264,6 +318,7 @@ namespace HeartEventHelper
         }
         public static string AddReactionText(string response, string reaction)
         {
+            if (response == "") { return response; }
             int friendship = int.Parse(reaction);
 
             string beforePositive = ReplaceBrackets(Config.beforePositive, friendship);
