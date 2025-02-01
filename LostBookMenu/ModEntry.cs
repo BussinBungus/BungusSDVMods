@@ -27,7 +27,7 @@ namespace LostBookMenu
                 return;
 
             SHelper = helper;
-            BookMenu.Init(Monitor);
+            BookMenu.Init(Helper, Monitor);
 
             helper.Events.Content.AssetRequested += Content_AssetRequested;
             helper.Events.GameLoop.GameLaunched += GameLoop_GameLaunched;

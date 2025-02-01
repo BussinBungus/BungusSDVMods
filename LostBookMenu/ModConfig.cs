@@ -4,7 +4,7 @@ namespace LostBookMenu
 {
     public class ModConfig
     /// Original ///
-    /*{
+    {
         public bool ModEnabled { get; set; } = true;
         public bool MenuInLibrary { get; set; } = true;
         public SButton MenuKey { get; set; } = SButton.None;
@@ -17,9 +17,9 @@ namespace LostBookMenu
         public float CoverScale { get; set; } = 8;
         public int HorizontalSpace { get; set; } = 96;
         public int VerticalSpace { get; set; } = 116;
-    }*/
+    }
     /// Smaller ///
-    {
+    /*{
         public bool ModEnabled { get; set; } = true;
         public bool MenuInLibrary { get; set; } = true;
         public SButton MenuKey { get; set; } = SButton.None;
@@ -32,5 +32,5 @@ namespace LostBookMenu
         public float CoverScale { get; set; } = 8;
         public int HorizontalSpace { get; set; } = 16;
         public int VerticalSpace { get; set; } = 20;
-    }
+    }*/
 }

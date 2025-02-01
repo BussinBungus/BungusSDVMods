@@ -45,16 +45,21 @@ namespace HeartEventHelper
             var newCodes = new List<CodeInstruction>();
             for (int i = 0; i < codes.Count; i++)
             {
-                if (codes[i].opcode == OpCodes.Ldelem_Ref && codes[i + 2].opcode == OpCodes.Newobj && (ConstructorInfo)codes[i + 2].operand == AccessTools.Constructor(typeof(NPCDialogueResponse), new System.Type[] { typeof(string), typeof(int), typeof(string), typeof(string), typeof(string) }))
+                newCodes.Add(codes[i]);
+
+                int j = i + 2;
+                if (j < codes.Count && codes[j].opcode == OpCodes.Newobj && (ConstructorInfo)codes[j].operand == AccessTools.Constructor(typeof(NPCDialogueResponse), new System.Type[] { typeof(string), typeof(int), typeof(string), typeof(string), typeof(string) }))
                 {
-                    newCodes.Add(codes[i]); // load response
-                    newCodes.Add(new CodeInstruction(OpCodes.Ldloc_S, 17)); // get responseSplit
-                    newCodes.Add(new CodeInstruction(OpCodes.Ldc_I4_1));
-                    newCodes.Add(new CodeInstruction(OpCodes.Ldelem_Ref)); // load reaction (responseSplit[1])
+                    if (codes[i].opcode == OpCodes.Ldelem_Ref) // handle $r
+                    {
+                        newCodes.Add(new CodeInstruction(OpCodes.Ldloc_S, 18)); // get responseSplit at index 18 (if the mod breaks due to an update, check that the index is still correct!)
+                        newCodes.Add(new CodeInstruction(OpCodes.Ldc_I4_1));
+                        newCodes.Add(new CodeInstruction(OpCodes.Ldelem_Ref)); // load reaction (responseSplit[1])
+                    }
+                    else newCodes.Add(new CodeInstruction(OpCodes.Ldstr, "0")); // handle $y
+
                     newCodes.Add(new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(ModEntry), nameof(ModEntry.AddReactionText)))); // call AddReactionText
                 }
-                else
-                    newCodes.Add(codes[i]);
             }
             return newCodes.AsEnumerable();
         }
@@ -103,30 +108,38 @@ namespace HeartEventHelper
                 string currentCommand = Game1.CurrentEvent.GetCurrentCommand();
                 string[] scriptsSplit = currentCommand.Substring(currentCommand.IndexOf("(break)") + 7).Split("(break)");
 
+                // SMonitor.Log($"Current Event Command: {Game1.CurrentEvent.GetCurrentCommand()}", LogLevel.Error);
+                // foreach (string script in scriptsSplit) { SMonitor.Log($"script: {script}", LogLevel.Error); }
+
                 for (int i = 0; i < answers.Length; i++)
                 {
                     int friendship = 0;
 
                     if (ArgUtility.TryGet(scriptsSplit, i, out var script, out var error))
                     {
-                        string[] scriptCommands = script.Split('\\');
+                        string[] scriptCommands = script.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+                        
+                        // foreach (string command in scriptCommands) { SMonitor.Log($"command: {command}", LogLevel.Error); }
 
                         foreach (string command in scriptCommands)
                         {
-                            string[] commandSplit = ArgUtility.SplitBySpaceQuoteAware(command);
-                            string commandName = commandSplit[0];
+                            string[] argSplit = ArgUtility.SplitBySpaceQuoteAware(command);
+
+                            // foreach (string arg in argSplit) { SMonitor.Log($"arg: {arg}", LogLevel.Error); }
+
+                            string commandName = argSplit[0];
 
                             switch (commandName)
                             {
                                 case "friendship":
                                 case "friend":
-                                    string reaction = commandSplit[2];
+                                    string reaction = argSplit[2];
                                     SMonitor.Log($"friendship command at answer {i + 1}, gives {reaction} pts", LogLevel.Trace);
                                     friendship += int.Parse(reaction);
                                     break;
                                 case "fork":
-                                    ArgUtility.TryGet(commandSplit, 1, out var req, out var error2);
-                                    ArgUtility.TryGetOptional(commandSplit, 2, out var forkEventID, out error2);
+                                    ArgUtility.TryGet(argSplit, 1, out var req, out var error2);
+                                    ArgUtility.TryGetOptional(argSplit, 2, out var forkEventID, out error2);
                                     if (forkEventID == null)
                                     {
                                         forkEventID = req;
@@ -139,7 +152,7 @@ namespace HeartEventHelper
                                     }
                                     break;
                                 case "switchEvent":
-                                    string switchEventID = commandSplit[1];
+                                    string switchEventID = argSplit[1];
                                     SMonitor.Log($"switchEvent command at answer {i + 1}, attempting branch to event {switchEventID}", LogLevel.Trace);
                                     friendship += BranchHandler(switchEventID);
                                     break;
@@ -256,16 +269,21 @@ namespace HeartEventHelper
                 return answers;
             }
         }
-        public static int BranchHandler(string eventID)
+        public static int BranchHandler(string eventID, string? location = null)
         {
             Event branchEvent = Game1.currentLocation.findEventById(eventID);
             int friendship = 0;
-            
+            location ??= Game1.currentLocation.Name;
+
             if (branchEvent == null)
             {
-                if (Game1.content.Load<Dictionary<string, string>>("Data\\Events\\Temp").TryGetValue(eventID, out var eventScript))
+                if (Game1.content.Load<Dictionary<string, string>>("Data\\Events\\Temp").TryGetValue(eventID, out var eventScript1))
                 {
-                    branchEvent = new Event(eventScript);
+                    branchEvent = new Event(eventScript1);
+                }
+                else if (Game1.content.Load<Dictionary<string, string>>($"Data\\Events\\{location}").TryGetValue(eventID, out var eventScript2))
+                {
+                    branchEvent = new Event(eventScript2);
                 }
                 else
                 {
@@ -307,10 +325,13 @@ namespace HeartEventHelper
                             friendship += BranchHandler(forkEventID); // recursion (spooky), may remove
                         }
                         break;
+                    case "changeLocation":
+                        location = commandSplit[1];
+                        break;
                     case "switchEvent":
                         string switchEventID = commandSplit[1];
                         SMonitor.Log($"switchEvent command at index {i}, attempting branch to event {switchEventID}", LogLevel.Trace);
-                        friendship += BranchHandler(switchEventID); // recursion (spooky), may remove
+                        friendship += BranchHandler(switchEventID, location); // recursion (spooky), may remove
                         break;
                 }
             }
