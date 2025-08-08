@@ -1,0 +1,10 @@
+﻿{
+  "Name": "Holes and Falling",
+  "Author": "bungus",
+  "Version": "1.0.0",
+  "Description": "An updated version of Max Vollmer's BetterSkullCavernFalling and LeFauxMatt's PortableHoles for SDV 1.6+.",
+  "UniqueID": "bungus.HolesAndFalling",
+  "EntryDll": "HolesAndFalling.dll",
+  "MinimumApiVersion": "4.0.0",
+  "UpdateKeys": [ "Nexus: 36455" ]
+}

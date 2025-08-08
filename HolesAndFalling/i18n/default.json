@@ -1,0 +1,16 @@
+{
+  "button.portable-hole.title": "Portable Hole",
+  "button.portable-hole.tooltip": "Place a Portable Hole",
+  "config.corner-message.name": "Corner Message",
+  "config.corner-message.tooltip": "Enable corner HUD message instead of pop-up dialog when falling.",
+  "config.portable-hole.name": "Portable Hole",
+  "config.portable-hole.tooltip": "Allow Portable Hole item to be obtained.",
+  "config.hole-recipe.name": "Hole Recipe",
+  "config.hole-recipe.tooltip": "The ingredients to craft a Portable Hole, as a sequence of alternating item IDs and quantities.",
+  "config.unlock-automatically.name": "Unlock Hole Automatically",
+  "config.unlock-automatically.tooltip": "Automatically unlock the Portable Hole recipe.",
+  "config.soft-fall.name": "Soft Fall",
+  "config.soft-fall.tooltip": "Negate damage taken while falling down a hole.",
+  "item.portable-hole.name": "Portable Hole",
+  "item.portable-hole.description": "Made from space-age material. Disclaimer: Has no effect whatsoever on roadrunners."
+}
