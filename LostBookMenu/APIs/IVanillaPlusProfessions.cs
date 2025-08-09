@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using StardewValley;
 
-namespace LostBookMenu
+namespace LostBookMenu.APIs
 {
     public interface IVanillaPlusProfessions
     {

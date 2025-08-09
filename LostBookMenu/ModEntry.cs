@@ -1,24 +1,25 @@
-﻿using Microsoft.Xna.Framework;
+﻿using LostBookMenu.Config;
+using LostBookMenu.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewValley;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using xTile;
+using xTile.Dimensions;
+using xTile.Layers;
+using xTile.Tiles;
 
 namespace LostBookMenu
 {
-    /// <summary>The mod entry point.</summary>
+    /// TODO: add BigSelect sound when opening menu, restructure
     public partial class ModEntry : Mod
     {
-        public static IModHelper SHelper;
-        public static ModConfig Config;
+        private static ModConfig Config;
 
-        public static string coverPath = "bungus.BookMenu/covers";
         public static Dictionary<string, CoverData> bookData = new Dictionary<string, CoverData>();
-
-        /// <summary>The mod entry point, called after the mod is first loaded.</summary>
-        /// <param name="helper">Provides simplified APIs for writing mods.</param>
         public override void Entry(IModHelper helper)
         {
             Config = helper.ReadConfig<ModConfig>();
@@ -26,179 +27,100 @@ namespace LostBookMenu
             if (!Config.ModEnabled)
                 return;
 
-            SHelper = helper;
-            BookMenu.Init(Helper, Monitor);
+            BookMenu.Init(Helper, ModManifest, Config, Monitor);
+            VPPHelper.Init(Helper, ModManifest, Config, Monitor);
 
-            helper.Events.Content.AssetRequested += Content_AssetRequested;
-            helper.Events.GameLoop.GameLaunched += GameLoop_GameLaunched;
-            helper.Events.GameLoop.DayStarted += GameLoop_DayStarted;
-            helper.Events.Input.ButtonPressed += Input_ButtonPressed;
+            GameLocation.RegisterTileAction($"{ModManifest.UniqueID}_OpenMenu", HandleOpenMenu);
+
+            Helper.Events.Content.AssetRequested += onAssetRequested;
+            Helper.Events.GameLoop.GameLaunched += onGameLaunched;
+            Helper.Events.GameLoop.DayStarted += onDayStarted;
+            Helper.Events.Input.ButtonPressed += onButtonPressed;
         }
-
-        private void Content_AssetRequested(object sender, StardewModdingAPI.Events.AssetRequestedEventArgs e)
+        private void onAssetRequested(object sender, StardewModdingAPI.Events.AssetRequestedEventArgs e)
         {
-            if (e.NameWithoutLocale.IsEquivalentTo(coverPath))
+            if (e.NameWithoutLocale.IsEquivalentTo("bungus.BookMenu/covers"))
             {
                 e.LoadFrom(() => coverDictionary, StardewModdingAPI.Events.AssetLoadPriority.Exclusive);
             }
+            if (e.NameWithoutLocale.IsEquivalentTo("Maps/ArchaeologyHouse"))
+            {
+                e.Edit(asset => patchMuseumMap(asset));
+            }
         }
 
-        private void GameLoop_DayStarted(object sender, StardewModdingAPI.Events.DayStartedEventArgs e)
+        private void onDayStarted(object sender, StardewModdingAPI.Events.DayStartedEventArgs e)
         {
-            bookData = Helper.GameContent.Load<Dictionary<string, CoverData>>(coverPath);
+            bookData = Helper.GameContent.Load<Dictionary<string, CoverData>>("bungus.BookMenu/covers");
             foreach (var key in bookData.Keys.ToArray())
             {
                 bookData[key].scale = Config.CoverScale;
-                bookData[key].title = SHelper.Translation.Get($"BookName.{key}");
+                bookData[key].title = Helper.Translation.Get($"BookName.{key}");
                 if (!string.IsNullOrEmpty(bookData[key].texturePath))
                 {
                     bookData[key].texture = Helper.GameContent.Load<Texture2D>(bookData[key].texturePath);
                 }
+                else if (Helper.ModRegistry.IsLoaded("Airyn.RandomLibraryBookCovers"))
+                {
+                    bookData[key].texture = Helper.ModContent.Load<Texture2D>(Path.Combine("Assets", $"book_{(int.Parse(key) < 10 ? "0" + key : key)}.png"));
+                }
                 else
                 {
-                    bookData[key].texture = Helper.ModContent.Load<Texture2D>(Path.Combine("assets", "cover.png"));
+                    bookData[key].texture = Helper.ModContent.Load<Texture2D>(Path.Combine("Assets", "cover.png"));
                 }
 
             }
         }
 
-        private void GameLoop_GameLaunched(object sender, StardewModdingAPI.Events.GameLaunchedEventArgs e)
+        private void onGameLaunched(object sender, StardewModdingAPI.Events.GameLaunchedEventArgs e)
         {
-            // get Generic Mod Config Menu's API (if it's installed)
-            var configMenu = Helper.ModRegistry.GetApi<IGenericModConfigMenuApi>("spacechase0.GenericModConfigMenu");
-            if (configMenu is null)
-                return;
-
-            // register mod configs
-            configMenu.Register(
-                mod: ModManifest,
-                reset: () => Config = new ModConfig(),
-                save: () => Helper.WriteConfig(Config)
-            );
-
-            configMenu.AddSectionTitle(
-                mod: ModManifest,
-                text: () => "Basic Settings"
-            );
-            configMenu.AddBoolOption(
-                mod: ModManifest,
-                name: () => "Mod Enabled",
-                getValue: () => Config.ModEnabled,
-                setValue: value => Config.ModEnabled = value
-            );
-            configMenu.AddBoolOption(
-                mod: ModManifest,
-                name: () => "Menu Book in Library",
-                getValue: () => Config.MenuInLibrary,
-                setValue: value => Config.MenuInLibrary = value
-            );
-            configMenu.AddKeybind(
-                mod: ModManifest,
-                name: () => "Menu Key",
-                getValue: () => Config.MenuKey,
-                setValue: value => Config.MenuKey = value
-            );
-            configMenu.AddBoolOption(
-                mod: ModManifest,
-                name: () => "Use Original Titles",
-                tooltip: () => "Use the original 'always on' titles instead of the new 'tooltip' titles.",
-                getValue: () => Config.LegacyTitles,
-                setValue: value => Config.LegacyTitles = value
-            );
-
-            configMenu.AddPageLink(
-                mod: ModManifest,
-                pageId: "Advanced",
-                text: () => "Go to Advanced Settings"
-            );
-            configMenu.AddPage(
-                mod: ModManifest,
-                pageId: "Advanced",
-                pageTitle: () => "Advanced Settings"
-            );
-            configMenu.AddSectionTitle(
-                mod: ModManifest,
-                text: () => "Advanced Settings"
-            );
-            configMenu.AddNumberOption(
-                mod: ModManifest,
-                name: () => "Window Width",
-                getValue: () => Config.WindowWidth,
-                setValue: value => Config.WindowWidth = value
-            );
-            configMenu.AddNumberOption(
-                mod: ModManifest,
-                name: () => "Window Height",
-                getValue: () => Config.WindowHeight,
-                setValue: value => Config.WindowHeight = value
-            );
-            configMenu.AddNumberOption(
-                mod: ModManifest,
-                name: () => "Number of Columns",
-                getValue: () => Config.GridColumns,
-                setValue: value => Config.GridColumns = value
-            );
-            configMenu.AddNumberOption(
-                mod: ModManifest,
-                name: () => "X Offset",
-                tooltip: () => "Distance from the left border to start displaying books. '-1' uses the default calculation to center.",
-                getValue: () => Config.xOffset,
-                setValue: value => Config.xOffset = value
-            );
-            configMenu.AddNumberOption(
-                mod: ModManifest,
-                name: () => "Y Offset",
-                tooltip: () => "Distance from the upper border to start displaying books.",
-                getValue: () => Config.yOffset,
-                setValue: value => Config.yOffset = value
-            );
-            configMenu.AddNumberOption(
-                mod: ModManifest,
-                name: () => "Cover Scale",
-                getValue: () => Config.CoverScale,
-                setValue: value => Config.CoverScale = value
-            );
-            configMenu.AddNumberOption(
-                mod: ModManifest,
-                name: () => "Horizontal Spacing",
-                tooltip: () => "The horizontal space between two books.",
-                getValue: () => Config.HorizontalSpace,
-                setValue: value => Config.HorizontalSpace = value
-            );
-            configMenu.AddNumberOption(
-                mod: ModManifest,
-                name: () => "Vertical Spacing",
-                tooltip: () => "The vertical space between two books.",
-                getValue: () => Config.VerticalSpace,
-                setValue: value => Config.VerticalSpace = value
-            );
+            GMCMConfig.Init(Helper, ModManifest, Config, Monitor);
         }
 
-        private void Input_ButtonPressed(object sender, StardewModdingAPI.Events.ButtonPressedEventArgs e)
+        private void onButtonPressed(object sender, StardewModdingAPI.Events.ButtonPressedEventArgs e)
         {
-            if (!Config.ModEnabled)
-                return;
             if (e.Button == Config.MenuKey)
             {
-                OpenMenu();
-            }
-            if (e.Button == SButton.MouseRight && e.Cursor.GrabTile == new Vector2(7, 9) && Game1.player.currentLocation.Name == "ArchaeologyHouse")
-            {
-                OpenMenu();
-            }
-            if (e.Button == SButton.ControllerA && e.Cursor.GrabTile == new Vector2(7, 10) && Game1.player.currentLocation.Name == "ArchaeologyHouse")
-            {
-                Helper.Input.Suppress(SButton.ControllerA);
                 OpenMenu();
             }
         }
 
         private void OpenMenu()
         {
-            if(Config.ModEnabled && Context.IsPlayerFree)
+            if (Config.ModEnabled && Context.IsPlayerFree)
             {
+                Game1.playSound("bigSelect");
                 Game1.activeClickableMenu = new BookMenu();
             }
+        }
+
+        private bool HandleOpenMenu(GameLocation location, string[] args, Farmer player, Point point)
+        {
+            OpenMenu();
+            return true;
+        }
+
+        private IAssetData patchMuseumMap(IAssetData asset)
+        {
+            Map map = asset.AsMap().Data;
+
+            Layer front = map.GetLayer("Front");
+            Layer buildings = map.GetLayer("Buildings");
+
+            // add book to library at (7, 8)
+            front.Tiles[7, 8] = new StaticTile(
+                layer: front,
+                tileSheet: map.GetTileSheet("untitled tile sheet"),
+                tileIndex: 675,
+                blendMode: BlendMode.Alpha
+            );
+
+            // add OpenMenu action to library at (7, 9)
+            Tile tile = buildings.PickTile(new Location(7 * Game1.tileSize, 9 * Game1.tileSize), Game1.viewport.Size);
+            if (tile != null)
+                tile.Properties["Action"] = $"{ModManifest.UniqueID}_OpenMenu";
+
+            return asset;
         }
     }
 }
