@@ -9,7 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.1.1" />
+    <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="BmFont">
+      <HintPath>..\..\..\..\..\..\Steam\steamapps\common\Stardew Valley\BmFont.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>
