@@ -45,7 +45,7 @@ namespace LostBookMenu
             }
             if (e.NameWithoutLocale.IsEquivalentTo("Maps/ArchaeologyHouse"))
             {
-                e.Edit(asset => patchMuseumMap(asset));
+                e.Edit(asset => patchMuseumMap(asset), StardewModdingAPI.Events.AssetEditPriority.Late);
             }
         }
 
